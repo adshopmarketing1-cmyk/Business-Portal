@@ -68,7 +68,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, showToast }) => {
           <div className="inline-flex p-3 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 mb-4 shadow-xl shadow-indigo-600/20">
             <Sparkles className="w-8 h-8" />
           </div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-white">ExpenseFlow</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight text-white">Salih Expense</h1>
           <p className="text-sm text-zinc-400 mt-2">
             {isSignUp ? 'Create your business expense management account' : 'Sign in to access your financial portal'}
           </p>

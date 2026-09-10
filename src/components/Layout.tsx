@@ -75,7 +75,7 @@ export const Layout: React.FC<LayoutProps> = ({
             <Sparkles className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="font-bold text-lg leading-none tracking-tight text-white">ExpenseFlow</h1>
+            <h1 className="font-bold text-lg leading-none tracking-tight text-white">Salih Expense</h1>
             <span className="text-xs text-indigo-400 font-medium">Business Portal</span>
           </div>
         </div>
@@ -177,7 +177,7 @@ export const Layout: React.FC<LayoutProps> = ({
             <div className="flex items-center justify-between pb-4 border-b border-white/10 mb-4">
               <div className="flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-indigo-400" />
-                <span className="font-bold text-white">ExpenseFlow</span>
+                <span className="font-bold text-white">Salih Expense</span>
               </div>
               <button onClick={() => setMobileOpen(false)} className="text-zinc-400 hover:text-white">
                 <X className="w-6 h-6" />
