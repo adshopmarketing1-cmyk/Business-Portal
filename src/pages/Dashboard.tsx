@@ -8,6 +8,8 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Plus,
+  CreditCard,
+  Building2,
 } from 'lucide-react';
 import { Expense, Income, Client, Budget } from '../types/database';
 import { formatCurrency, formatDate } from '../utils/formatters';
@@ -46,6 +48,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const totalClientBalance = clients.reduce((sum, item) => sum + Number(item.balance_amount || 0), 0);
   const totalBudget = budgets.reduce((sum, item) => sum + Number(item.budget_amount || 0), 0);
 
+  // Credit Card Outstanding Calculation
+  const creditCardOutstanding = expenses
+    .filter((e) => e.payment_method === 'Credit Card')
+    .reduce((sum, e) => sum + Number(e.amount || 0), 0);
+
+  const upiSpent = expenses
+    .filter((e) => e.payment_method === 'UPI')
+    .reduce((sum, e) => sum + Number(e.amount || 0), 0);
+
+  const cashSpent = expenses
+    .filter((e) => e.payment_method === 'Cash')
+    .reduce((sum, e) => sum + Number(e.amount || 0), 0);
+
   const budgetUsed = totalExpenses;
   const remainingBudget = Math.max(0, totalBudget - budgetUsed);
   const budgetPercentage = totalBudget > 0 ? Math.min(100, Math.round((budgetUsed / totalBudget) * 100)) : 0;
@@ -61,7 +76,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
     value: expensesByCategoryMap[cat],
   }));
 
+  // Chart data: Payment Method Breakdown
+  const paymentMethodMap: Record<string, number> = {};
+  expenses.forEach((item) => {
+    const method = item.payment_method || 'Other';
+    paymentMethodMap[method] = (paymentMethodMap[method] || 0) + Number(item.amount);
+  });
+
+  const paymentMethodChartData = Object.keys(paymentMethodMap).map((method) => ({
+    name: method,
+    value: paymentMethodMap[method],
+  }));
+
   const CATEGORY_COLORS = ['#6366F1', '#10B981', '#F59E0B', '#EF4444', '#3B82F6', '#8B5CF6', '#EC4899'];
+  const PAYMENT_COLORS = ['#F59E0B', '#6366F1', '#10B981', '#3B82F6', '#8B5CF6', '#EF4444'];
 
   // Combined Recent Transactions
   const recentTransactions = [
@@ -78,7 +106,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Executive Dashboard</h1>
           <p className="text-sm text-zinc-400 mt-1">
-            Real-time financial summary powered by Supabase PostgreSQL.
+            Real-time financial summary & credit card bill tracking powered by Supabase PostgreSQL.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -93,7 +121,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       {/* Primary KPI Metrics Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
         {/* Total Expenses */}
         <div className="bg-[#08090E] border border-white/10 rounded-2xl p-5 hover:border-indigo-500/30 transition-all">
           <div className="flex items-center justify-between">
@@ -105,6 +133,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <p className="text-xl font-extrabold text-white mt-3">{formatCurrency(totalExpenses, currency)}</p>
           <span className="text-[11px] text-rose-400 flex items-center gap-1 mt-1 font-medium">
             <ArrowUpRight className="w-3 h-3" /> Outflow
+          </span>
+        </div>
+
+        {/* Credit Card Outstanding Bill */}
+        <div className="bg-[#08090E] border border-amber-500/30 bg-gradient-to-b from-amber-500/5 to-transparent rounded-2xl p-5 hover:border-amber-500/50 transition-all shadow-lg shadow-amber-500/5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-amber-300">Credit Card Bill</span>
+            <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30">
+              <CreditCard className="w-4 h-4" />
+            </div>
+          </div>
+          <p className="text-xl font-extrabold text-amber-400 mt-3">{formatCurrency(creditCardOutstanding, currency)}</p>
+          <span className="text-[11px] text-amber-300/80 flex items-center gap-1 mt-1 font-medium">
+            Outstanding Bill Balance
           </span>
         </div>
 
@@ -171,6 +213,39 @@ export const Dashboard: React.FC<DashboardProps> = ({
         </div>
       </div>
 
+      {/* Credit Card & Payment Mode Summary Banner */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-[#08090E] border border-white/10 rounded-2xl p-5 flex items-center justify-between">
+          <div>
+            <span className="text-xs text-zinc-400 font-semibold">Credit Card Outstanding</span>
+            <p className="text-lg font-bold text-amber-400 mt-1">{formatCurrency(creditCardOutstanding, currency)}</p>
+          </div>
+          <div className="p-3 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
+            <CreditCard className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="bg-[#08090E] border border-white/10 rounded-2xl p-5 flex items-center justify-between">
+          <div>
+            <span className="text-xs text-zinc-400 font-semibold">UPI Spent</span>
+            <p className="text-lg font-bold text-indigo-400 mt-1">{formatCurrency(upiSpent, currency)}</p>
+          </div>
+          <div className="p-3 rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+            <Wallet className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="bg-[#08090E] border border-white/10 rounded-2xl p-5 flex items-center justify-between">
+          <div>
+            <span className="text-xs text-zinc-400 font-semibold">Cash Spent</span>
+            <p className="text-lg font-bold text-emerald-400 mt-1">{formatCurrency(cashSpent, currency)}</p>
+          </div>
+          <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+            <Building2 className="w-5 h-5" />
+          </div>
+        </div>
+      </div>
+
       {/* Budget Progress Bar */}
       <div className="bg-[#08090E] border border-white/10 rounded-2xl p-6">
         <div className="flex items-center justify-between mb-3">
@@ -192,7 +267,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       {/* Charts & Recent Activity Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Category Expense Break-down */}
         <div className="bg-[#08090E] border border-white/10 rounded-2xl p-6">
           <h3 className="text-base font-bold text-white mb-4">Expenses by Category</h3>
@@ -215,6 +290,40 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   >
                     {categoryChartData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={CATEGORY_COLORS[index % CATEGORY_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{ backgroundColor: '#0D0E16', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff' }}
+                    formatter={(value: any) => [formatCurrency(Number(value), currency), 'Amount']}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+
+        {/* Payment Method Breakdown */}
+        <div className="bg-[#08090E] border border-white/10 rounded-2xl p-6">
+          <h3 className="text-base font-bold text-white mb-4">Spending by Payment Method</h3>
+          {paymentMethodChartData.length === 0 ? (
+            <div className="h-64 flex flex-col items-center justify-center text-zinc-500 text-xs">
+              No expense payment data recorded.
+            </div>
+          ) : (
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={paymentMethodChartData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={55}
+                    outerRadius={85}
+                    paddingAngle={4}
+                    dataKey="value"
+                  >
+                    {paymentMethodChartData.map((entry, index) => (
+                      <Cell key={`pm-cell-${index}`} fill={PAYMENT_COLORS[index % PAYMENT_COLORS.length]} />
                     ))}
                   </Pie>
                   <Tooltip
@@ -264,7 +373,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       <p className="text-xs font-semibold text-white truncate">
                         {tx.description || tx.category}
                       </p>
-                      <p className="text-[11px] text-zinc-400">{formatDate(tx.date)}</p>
+                      <p className="text-[11px] text-zinc-400">
+                        {formatDate(tx.date)} {tx.type === 'expense' && `• ${tx.payment_method}`}
+                      </p>
                     </div>
                   </div>
 
