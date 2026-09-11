@@ -338,6 +338,7 @@ export const App: React.FC = () => {
               budgets={budgets}
               currency={currency}
               onNavigate={(tab) => setCurrentTab(tab)}
+              onAddExpense={handleAddExpense}
             />
           )}
 

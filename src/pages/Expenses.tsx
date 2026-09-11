@@ -36,6 +36,7 @@ export const Expenses: React.FC<ExpensesProps> = ({
   const [loading, setLoading] = useState(false);
 
   const categories = [
+    'Credit Card Bill',
     'Travel',
     'Fuel',
     'Food',
