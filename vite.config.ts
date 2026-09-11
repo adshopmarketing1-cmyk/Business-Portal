@@ -5,7 +5,7 @@ import path from 'path';
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
-  base: '/expenseflow-webapp/',
+  base: './',
   server: {
     port: 8080,
     host: true,
