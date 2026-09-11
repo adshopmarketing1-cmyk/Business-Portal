@@ -367,10 +367,12 @@ export const App: React.FC = () => {
           {currentTab === 'clients' && (
             <ClientBalances
               clients={clients}
+              income={income}
               currency={currency}
               onAdd={handleAddClient}
               onUpdate={handleUpdateClient}
               onDelete={handleDeleteClient}
+              onAddIncome={handleAddIncome}
             />
           )}
 
