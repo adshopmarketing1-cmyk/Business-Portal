@@ -65,8 +65,12 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, showToast }) => {
       <div className="max-w-md w-full relative z-10">
         {/* Logo Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex p-3 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 mb-4 shadow-xl shadow-indigo-600/20">
-            <Sparkles className="w-8 h-8" />
+          <div className="inline-flex p-1.5 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 mb-4 shadow-xl shadow-indigo-600/20">
+            <img
+              src="/app-icon.jpg"
+              alt="Salih Expense"
+              className="w-14 h-14 rounded-xl object-cover border border-indigo-400/50 shadow-md object-top"
+            />
           </div>
           <h1 className="text-3xl font-extrabold tracking-tight text-white">Salih Expense</h1>
           <p className="text-sm text-zinc-400 mt-2">

@@ -71,9 +71,11 @@ export const Layout: React.FC<LayoutProps> = ({
       {/* Sidebar - Desktop */}
       <aside className="hidden lg:flex w-64 flex-col fixed top-0 bottom-0 left-0 bg-[#08090E] border-r border-white/10 z-40">
         <div className="p-6 border-b border-white/10 flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-400 flex items-center justify-center shadow-lg shadow-indigo-600/30">
-            <Sparkles className="w-6 h-6 text-white" />
-          </div>
+          <img
+            src="/app-icon.jpg"
+            alt="Salih Expense"
+            className="w-10 h-10 rounded-xl object-cover border border-indigo-500/40 shadow-lg shadow-indigo-600/30 object-top"
+          />
           <div>
             <h1 className="font-bold text-lg leading-none tracking-tight text-white">Salih Expense</h1>
             <span className="text-xs text-indigo-400 font-medium">Business Portal</span>
@@ -175,8 +177,12 @@ export const Layout: React.FC<LayoutProps> = ({
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
           <div className="relative flex-1 max-w-xs w-full bg-[#08090E] border-r border-white/10 flex flex-col p-4 z-50">
             <div className="flex items-center justify-between pb-4 border-b border-white/10 mb-4">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-indigo-400" />
+              <div className="flex items-center gap-2.5">
+                <img
+                  src="/app-icon.jpg"
+                  alt="Salih Expense"
+                  className="w-8 h-8 rounded-lg object-cover border border-indigo-500/40 object-top"
+                />
                 <span className="font-bold text-white">Salih Expense</span>
               </div>
               <button onClick={() => setMobileOpen(false)} className="text-zinc-400 hover:text-white">
