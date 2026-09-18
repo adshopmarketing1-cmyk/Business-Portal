@@ -11,11 +11,13 @@ import {
   Menu,
   X,
   Search,
-  Bell,
-  Sparkles,
   UserCheck,
+  Pencil,
+  Sparkles,
 } from 'lucide-react';
 import { Profile } from '../types/database';
+import { useAppBrand } from '../context/BrandContext';
+import { EditBrandingModal } from './EditBrandingModal';
 
 export type TabType =
   | 'dashboard'
@@ -33,6 +35,7 @@ interface LayoutProps {
   userEmail?: string | null;
   profile?: Profile | null;
   onLogout: () => void;
+  showToast?: (msg: string, type: 'success' | 'error' | 'warning' | 'info') => void;
   children: React.ReactNode;
 }
 
@@ -43,10 +46,14 @@ export const Layout: React.FC<LayoutProps> = ({
   userEmail,
   profile,
   onLogout,
+  showToast,
   children,
 }) => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchValue, setSearchValue] = useState('');
+  const [brandingModalOpen, setBrandingModalOpen] = useState(false);
+
+  const { branding } = useAppBrand();
 
   const navItems: { id: TabType; label: string; icon: React.ReactNode }[] = [
     { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-5 h-5" /> },
@@ -55,7 +62,7 @@ export const Layout: React.FC<LayoutProps> = ({
     { id: 'clients', label: 'Client Amount Balance', icon: <Users className="w-5 h-5" /> },
     { id: 'budgets', label: 'Budgets', icon: <PieChart className="w-5 h-5" /> },
     { id: 'reports', label: 'Reports', icon: <BarChart3 className="w-5 h-5" /> },
-    { id: 'settings', label: 'Settings', icon: <Settings className="w-5 h-5" /> },
+    { id: 'settings', label: 'Settings & Branding', icon: <Settings className="w-5 h-5" /> },
   ];
 
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -70,15 +77,33 @@ export const Layout: React.FC<LayoutProps> = ({
     <div className="min-h-screen flex bg-black text-white selection:bg-indigo-500 selection:text-white">
       {/* Sidebar - Desktop */}
       <aside className="hidden lg:flex w-64 flex-col fixed top-0 bottom-0 left-0 bg-[#08090E] border-r border-white/10 z-40">
-        <div className="p-6 border-b border-white/10 flex items-center gap-3">
-          <img
-            src="/app-icon.jpg"
-            alt="Salih Expense"
-            className="w-10 h-10 rounded-xl object-cover border border-indigo-500/40 shadow-lg shadow-indigo-600/30 object-top"
-          />
-          <div>
-            <h1 className="font-bold text-lg leading-none tracking-tight text-white">Salih Expense</h1>
-            <span className="text-xs text-indigo-400 font-medium">Business Portal</span>
+        {/* Brand Header - Click to Edit */}
+        <div
+          onClick={() => setBrandingModalOpen(true)}
+          className="p-5 border-b border-white/10 flex items-center justify-between cursor-pointer group hover:bg-white/[0.03] transition-colors"
+          title="Click to edit App Name & Logo"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <img
+              src={branding.appLogo}
+              alt={branding.appName}
+              className="w-10 h-10 rounded-xl object-cover border border-indigo-500/40 shadow-lg shadow-indigo-600/30 shrink-0"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = '/app-icon.jpg';
+              }}
+            />
+            <div className="min-w-0 flex-1">
+              <h1 className="font-bold text-base leading-snug tracking-tight text-white truncate group-hover:text-indigo-300 transition-colors">
+                {branding.appName}
+              </h1>
+              <span className="text-xs text-indigo-400 font-medium truncate block">
+                {branding.appSubtitle}
+              </span>
+            </div>
+          </div>
+
+          <div className="p-1.5 rounded-lg bg-white/5 opacity-0 group-hover:opacity-100 text-zinc-400 hover:text-white transition-opacity shrink-0">
+            <Pencil className="w-3.5 h-3.5" />
           </div>
         </div>
 
@@ -158,8 +183,17 @@ export const Layout: React.FC<LayoutProps> = ({
             </div>
           </form>
 
-          {/* User badges */}
+          {/* Quick Branding Edit Button & User Status */}
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setBrandingModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600/10 border border-indigo-500/20 text-indigo-300 hover:bg-indigo-600/20 text-xs font-semibold transition-all"
+              title="Edit App Name, Subtitle & Logo"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+              <span className="hidden sm:inline">Customize App</span>
+            </button>
+
             <div className="hidden md:flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium">
               <UserCheck className="w-3.5 h-3.5" />
               <span>Supabase Connected</span>
@@ -177,13 +211,27 @@ export const Layout: React.FC<LayoutProps> = ({
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setMobileOpen(false)} />
           <div className="relative flex-1 max-w-xs w-full bg-[#08090E] border-r border-white/10 flex flex-col p-4 z-50">
             <div className="flex items-center justify-between pb-4 border-b border-white/10 mb-4">
-              <div className="flex items-center gap-2.5">
+              <div
+                onClick={() => {
+                  setMobileOpen(false);
+                  setBrandingModalOpen(true);
+                }}
+                className="flex items-center gap-2.5 cursor-pointer"
+              >
                 <img
-                  src="/app-icon.jpg"
-                  alt="Salih Expense"
-                  className="w-8 h-8 rounded-lg object-cover border border-indigo-500/40 object-top"
+                  src={branding.appLogo}
+                  alt={branding.appName}
+                  className="w-8 h-8 rounded-lg object-cover border border-indigo-500/40"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/app-icon.jpg';
+                  }}
                 />
-                <span className="font-bold text-white">Salih Expense</span>
+                <div>
+                  <span className="font-bold text-white text-sm block truncate">{branding.appName}</span>
+                  <span className="text-[10px] text-indigo-400 font-medium block truncate">
+                    {branding.appSubtitle}
+                  </span>
+                </div>
               </div>
               <button onClick={() => setMobileOpen(false)} className="text-zinc-400 hover:text-white">
                 <X className="w-6 h-6" />
@@ -223,6 +271,14 @@ export const Layout: React.FC<LayoutProps> = ({
           </div>
         </div>
       )}
+
+      {/* Edit Branding Quick Modal */}
+      <EditBrandingModal
+        isOpen={brandingModalOpen}
+        onClose={() => setBrandingModalOpen(false)}
+        showToast={showToast}
+      />
     </div>
   );
 };
+

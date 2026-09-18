@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { Sparkles, Mail, Lock, User, ArrowRight, ShieldAlert } from 'lucide-react';
+import { ToastType } from '../components/Toast';
+import { useAppBrand } from '../context/BrandContext';
 
 interface AuthProps {
   onSuccess: () => void;
-  showToast: (msg: string, type: 'success' | 'error' | 'warning' | 'info') => void;
+  showToast: (msg: string, type: ToastType) => void;
 }
 
 export const Auth: React.FC<AuthProps> = ({ onSuccess, showToast }) => {
@@ -12,7 +14,10 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, showToast }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [companyName, setCompanyName] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const { branding } = useAppBrand();
   const configured = isSupabaseConfigured();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -31,15 +36,18 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, showToast }) => {
 
     try {
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
-            data: { full_name: fullName },
+            data: {
+              full_name: fullName,
+              company_name: companyName,
+            },
           },
         });
         if (error) throw error;
-        showToast('Sign up successful! Please check your email or log in.', 'success');
+        showToast('Registration successful! Please sign in or check your email for confirmation.', 'success');
         setIsSignUp(false);
       } else {
         const { error } = await supabase.auth.signInWithPassword({
@@ -67,13 +75,17 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, showToast }) => {
         <div className="text-center mb-8">
           <div className="inline-flex p-1.5 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 text-indigo-400 mb-4 shadow-xl shadow-indigo-600/20">
             <img
-              src="/app-icon.jpg"
-              alt="Salih Expense"
-              className="w-14 h-14 rounded-xl object-cover border border-indigo-400/50 shadow-md object-top"
+              src={branding.appLogo}
+              alt={branding.appName}
+              className="w-14 h-14 rounded-xl object-cover border border-indigo-400/50 shadow-md"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = '/app-icon.jpg';
+              }}
             />
           </div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-white">Salih Expense</h1>
-          <p className="text-sm text-zinc-400 mt-2">
+          <h1 className="text-3xl font-extrabold tracking-tight text-white">{branding.appName}</h1>
+          <p className="text-sm text-indigo-400 font-medium mt-1">{branding.appSubtitle}</p>
+          <p className="text-xs text-zinc-400 mt-2">
             {isSignUp ? 'Create your business expense management account' : 'Sign in to access your financial portal'}
           </p>
         </div>

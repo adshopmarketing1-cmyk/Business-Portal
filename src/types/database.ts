@@ -9,6 +9,10 @@ export interface Profile {
   company_name: string | null;
   phone: string | null;
   currency: string;
+  app_name?: string | null;
+  app_subtitle?: string | null;
+  app_logo?: string | null;
+  accent_color?: string | null;
   created_at: string;
   updated_at: string;
 }
