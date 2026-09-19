@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Salih Expense | Business Portal</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="api.js"></script>
+</head>
+<body class="theme-indigo">
+
+  <!-- Top Navbar -->
+  <nav class="navbar">
+    <div style="display:flex; align-items:center; gap:0.75rem;">
+      <div style="width:40px; height:40px; background:linear-gradient(135deg,#6366f1,#8b5cf6); border-radius:10px; display:flex; align-items:center; justify-content:center; font-weight:800; color:#fff;">S</div>
+      <div>
+        <div class="brand-title brand-name-display">Salih Expense</div>
+        <div style="font-size:0.75rem; color:var(--text-dim);" class="brand-sub-display">Business Portal</div>
+      </div>
+    </div>
+    <div class="nav-actions">
+      <div class="status-pill" id="serverStatusPill">
+        <span class="dot checking"></span>
+        <span class="status-text">Checking Termux Backend...</span>
+      </div>
+      <button class="btn btn-secondary btn-icon" id="configApiBtn">⚙️ API URL</button>
+    </div>
+  </nav>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Main Auth Form -->
+  <div style="display:flex; justify-content:center; align-items:center; min-height:calc(100vh - 120px); padding:1.5rem;">
+    <div class="glass-panel" style="width:100%; max-width:440px; padding:2.5rem; border-radius:16px;">
+      <div style="text-align:center; margin-bottom:1.5rem;">
+        <h2 id="authTitle" style="font-size:1.5rem; font-weight:700;">Welcome Back</h2>
+        <p style="color:var(--text-muted); font-size:0.85rem; margin-top:0.3rem;" id="authSubtitle">
+          Sign in to manage your business expenses & client ledgers.
+        </p>
+      </div>
+
+      <!-- Login Form -->
+      <form id="loginForm">
+        <div class="form-group">
+          <label>Email Address</label>
+          <input type="email" id="loginEmail" class="input-field" placeholder="admin@crm.local" required>
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="loginPassword" class="input-field" placeholder="••••••••" required>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%; margin-top:0.5rem;">
+          Sign In to ExpenseFlow
+        </button>
+      </form>
+
+      <!-- Register Form -->
+      <form id="registerForm" style="display:none;">
+        <div class="form-group">
+          <label>Full Name</label>
+          <input type="text" id="regName" class="input-field" placeholder="John Doe" required>
+        </div>
+        <div class="form-group">
+          <label>Email Address</label>
+          <input type="email" id="regEmail" class="input-field" placeholder="user@company.com" required>
+        </div>
+        <div class="form-group">
+          <label>Company / Business Name</label>
+          <input type="text" id="regCompany" class="input-field" placeholder="My Business Suite">
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="regPassword" class="input-field" placeholder="••••••••" required>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%; margin-top:0.5rem;">
+          Create Admin Account
+        </button>
+      </form>
+
+      <div style="text-align:center; margin-top:1.5rem; font-size:0.85rem; color:var(--text-muted);">
+        <span id="toggleText">Don't have an account?</span>
+        <a href="#" id="toggleAuthMode" style="color:var(--primary); text-decoration:none; font-weight:600; margin-left:0.3rem;">
+          Register Now
+        </a>
+      </div>
+
+      <div style="margin-top:1.5rem; padding-top:1rem; border-top:1px solid var(--border-color); font-size:0.75rem; color:var(--text-dim); text-align:center;">
+        Default Credentials: <strong>admin@crm.local</strong> / <strong>AdminPassword123!</strong>
+      </div>
+    </div>
+  </div>
+
+  <!-- API Config Modal -->
+  <div class="modal-backdrop" id="configModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Configure Backend API URL</h3>
+        <button class="close-btn" id="closeConfigBtn">&times;</button>
+      </div>
+      <form id="configForm">
+        <div class="form-group">
+          <label>Serveo / Cloudflare HTTPS Endpoint</label>
+          <input type="url" id="apiInput" class="input-field" placeholder="https://xxxx.serveo.net/api" required>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:0.75rem; margin-top:1.25rem;">
+          <button type="submit" class="btn btn-primary">Save API URL</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      if (EXPENSEFLOW_API.getToken()) {
+        window.location.href = 'dashboard.html';
+        return;
+      }
+
+      let isRegistering = false;
+      const loginForm = document.getElementById('loginForm');
+      const registerForm = document.getElementById('registerForm');
+      const authTitle = document.getElementById('authTitle');
+      const authSubtitle = document.getElementById('authSubtitle');
+      const toggleAuthMode = document.getElementById('toggleAuthMode');
+      const toggleText = document.getElementById('toggleText');
+      const serverStatusPill = document.getElementById('serverStatusPill');
+
+      function showToast(msg, type = 'info') {
+        const container = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        toast.textContent = msg;
+        container.appendChild(toast);
+        setTimeout(() => toast.remove(), 4000);
+      }
+
+      async function checkHealth() {
+        const health = await EXPENSEFLOW_API.checkHealth();
+        const dot = serverStatusPill.querySelector('.dot');
+        const text = serverStatusPill.querySelector('.status-text');
+        if (health.status === 'online') {
+          dot.className = 'dot online';
+          text.textContent = 'POCO Termux Connected';
+        } else {
+          dot.className = 'dot offline';
+          text.textContent = 'POCO Termux Offline';
+        }
+      }
+
+      toggleAuthMode.addEventListener('click', (e) => {
+        e.preventDefault();
+        isRegistering = !isRegistering;
+        if (isRegistering) {
+          loginForm.style.display = 'none';
+          registerForm.style.display = 'block';
+          authTitle.textContent = 'Create Admin Account';
+          authSubtitle.textContent = 'Setup your user credentials for ExpenseFlow.';
+          toggleText.textContent = 'Already have an account?';
+          toggleAuthMode.textContent = 'Sign In';
+        } else {
+          loginForm.style.display = 'block';
+          registerForm.style.display = 'none';
+          authTitle.textContent = 'Welcome Back';
+          authSubtitle.textContent = 'Sign in to manage your business expenses & client ledgers.';
+          toggleText.textContent = "Don't have an account?";
+          toggleAuthMode.textContent = 'Register Now';
+        }
+      });
+
+      loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('loginEmail').value;
+        const password = document.getElementById('loginPassword').value;
+        try {
+          await EXPENSEFLOW_API.login(email, password);
+          showToast('Authentication successful!', 'success');
+          setTimeout(() => window.location.href = 'dashboard.html', 500);
+        } catch (err) {
+          showToast(err.message || 'Login failed. Check API URL.', 'error');
+        }
+      });
+
+      registerForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = document.getElementById('regName').value;
+        const email = document.getElementById('regEmail').value;
+        const password = document.getElementById('regPassword').value;
+        const company = document.getElementById('regCompany').value;
+        try {
+          await EXPENSEFLOW_API.register(name, email, password, company);
+          showToast('Account created successfully!', 'success');
+          setTimeout(() => window.location.href = 'dashboard.html', 500);
+        } catch (err) {
+          showToast(err.message || 'Registration failed.', 'error');
+        }
+      });
+
+      const configModal = document.getElementById('configModal');
+      document.getElementById('configApiBtn').addEventListener('click', () => {
+        document.getElementById('apiInput').value = EXPENSEFLOW_API.getBaseUrl();
+        configModal.classList.add('active');
+      });
+      document.getElementById('closeConfigBtn').addEventListener('click', () => configModal.classList.remove('active'));
+      document.getElementById('configForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        EXPENSEFLOW_API.setBaseUrl(document.getElementById('apiInput').value);
+        configModal.classList.remove('active');
+        showToast('API Endpoint updated!', 'info');
+        checkHealth();
+      });
+
+      checkHealth();
+    });
+  </script>
+</body>
+</html>
