@@ -1,67 +1,41 @@
-import { supabase } from '../lib/supabase';
+import { apiFetch } from '../lib/api';
 import { Expense } from '../types/database';
 
-export const getExpenses = async (userId: string, search?: string, category?: string): Promise<Expense[]> => {
-  let query = supabase
-    .from('expenses')
-    .select('*')
-    .eq('user_id', userId)
-    .order('date', { ascending: false });
+export const getExpenses = async (userId?: string, search?: string, category?: string): Promise<Expense[]> => {
+  let expenses = await apiFetch<Expense[]>('/api/expenses');
 
   if (category && category !== 'all') {
-    query = query.eq('category', category);
+    expenses = expenses.filter(e => e.category === category);
   }
 
-  if (search) {
-    query = query.or(`description.ilike.%${search}%,category.ilike.%${search}%,notes.ilike.%${search}%`);
+  if (search && search.trim() !== '') {
+    const q = search.toLowerCase();
+    expenses = expenses.filter(e => 
+      (e.description && e.description.toLowerCase().includes(q)) ||
+      (e.category && e.category.toLowerCase().includes(q)) ||
+      (e.notes && e.notes.toLowerCase().includes(q))
+    );
   }
 
-  const { data, error } = await query;
-  if (error) {
-    console.error('Error fetching expenses:', error);
-    throw new Error(error.message);
-  }
-  return data as Expense[];
+  return expenses;
 };
 
 export const createExpense = async (userId: string, expense: Omit<Expense, 'id' | 'user_id' | 'created_at' | 'updated_at'>): Promise<Expense> => {
-  const { data, error } = await supabase
-    .from('expenses')
-    .insert([
-      {
-        ...expense,
-        user_id: userId,
-      },
-    ])
-    .select()
-    .single();
-
-  if (error) {
-    console.error('Error creating expense:', error);
-    throw new Error(error.message);
-  }
-  return data as Expense;
+  return await apiFetch<Expense>('/api/expenses', {
+    method: 'POST',
+    body: JSON.stringify(expense),
+  });
 };
 
 export const updateExpense = async (expenseId: string, updates: Partial<Expense>): Promise<Expense> => {
-  const { data, error } = await supabase
-    .from('expenses')
-    .update(updates)
-    .eq('id', expenseId)
-    .select()
-    .single();
-
-  if (error) {
-    console.error('Error updating expense:', error);
-    throw new Error(error.message);
-  }
-  return data as Expense;
+  return await apiFetch<Expense>(`/api/expenses/${expenseId}`, {
+    method: 'PUT',
+    body: JSON.stringify(updates),
+  });
 };
 
 export const deleteExpense = async (expenseId: string): Promise<void> => {
-  const { error } = await supabase.from('expenses').delete().eq('id', expenseId);
-  if (error) {
-    console.error('Error deleting expense:', error);
-    throw new Error(error.message);
-  }
+  await apiFetch(`/api/expenses/${expenseId}`, {
+    method: 'DELETE',
+  });
 };

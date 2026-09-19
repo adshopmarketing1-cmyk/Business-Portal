@@ -1,73 +1,55 @@
-import { supabase } from '../lib/supabase';
+import { apiFetch } from '../lib/api';
 import { Client } from '../types/database';
 
-export const getClients = async (userId: string): Promise<Client[]> => {
-  const { data, error } = await supabase
-    .from('clients')
-    .select('*')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    console.error('Error fetching clients:', error);
-    throw new Error(error.message);
-  }
-  return data as Client[];
+export const getClients = async (userId?: string): Promise<Client[]> => {
+  return await apiFetch<Client[]>('/api/clients');
 };
 
 export const createClient = async (
   userId: string,
   clientData: Omit<Client, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'balance_amount'>
 ): Promise<Client> => {
-  const balance_amount = (clientData.total_amount || 0) - (clientData.paid_amount || 0);
-
-  const { data, error } = await supabase
-    .from('clients')
-    .insert([
-      {
-        ...clientData,
-        user_id: userId,
-        balance_amount,
-      },
-    ])
-    .select()
-    .single();
-
-  if (error) {
-    console.error('Error creating client:', error);
-    throw new Error(error.message);
-  }
-  return data as Client;
+  return await apiFetch<Client>('/api/clients', {
+    method: 'POST',
+    body: JSON.stringify(clientData),
+  });
 };
 
 export const updateClient = async (clientId: string, updates: Partial<Client>): Promise<Client> => {
-  if (updates.total_amount !== undefined || updates.paid_amount !== undefined) {
-    const { data: existing } = await supabase.from('clients').select('total_amount, paid_amount').eq('id', clientId).single();
-    if (existing) {
-      const total = updates.total_amount !== undefined ? updates.total_amount : existing.total_amount;
-      const paid = updates.paid_amount !== undefined ? updates.paid_amount : existing.paid_amount;
-      updates.balance_amount = total - paid;
-    }
-  }
-
-  const { data, error } = await supabase
-    .from('clients')
-    .update(updates)
-    .eq('id', clientId)
-    .select()
-    .single();
-
-  if (error) {
-    console.error('Error updating client:', error);
-    throw new Error(error.message);
-  }
-  return data as Client;
+  return await apiFetch<Client>(`/api/clients/${clientId}`, {
+    method: 'PUT',
+    body: JSON.stringify(updates),
+  });
 };
 
 export const deleteClient = async (clientId: string): Promise<void> => {
-  const { error } = await supabase.from('clients').delete().eq('id', clientId);
-  if (error) {
-    console.error('Error deleting client:', error);
-    throw new Error(error.message);
-  }
+  await apiFetch(`/api/clients/${clientId}`, {
+    method: 'DELETE',
+  });
+};
+
+export interface ClientPayment {
+  id: string;
+  user_id: string;
+  client_id: string;
+  amount: number;
+  payment_date: string;
+  payment_method: string;
+  reference_no?: string;
+  notes?: string;
+  created_at: string;
+}
+
+export const getClientPayments = async (clientId: string): Promise<ClientPayment[]> => {
+  return await apiFetch<ClientPayment[]>(`/api/clients/${clientId}/payments`);
+};
+
+export const recordClientPayment = async (
+  clientId: string,
+  payment: { amount: number; payment_date?: string; payment_method?: string; reference_no?: string; notes?: string }
+): Promise<{ payment: ClientPayment; client: Client }> => {
+  return await apiFetch<{ payment: ClientPayment; client: Client }>(`/api/clients/${clientId}/payments`, {
+    method: 'POST',
+    body: JSON.stringify(payment),
+  });
 };

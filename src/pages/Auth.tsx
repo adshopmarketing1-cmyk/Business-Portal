@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { supabase, isSupabaseConfigured } from '../lib/supabase';
-import { Sparkles, Mail, Lock, User, ArrowRight, ShieldAlert } from 'lucide-react';
+import { apiFetch, setToken, setStoredUser, API_BASE_URL } from '../lib/api';
+import { Mail, Lock, User, ArrowRight, Server } from 'lucide-react';
 import { ToastType } from '../components/Toast';
 import { useAppBrand } from '../context/BrandContext';
 
@@ -18,7 +18,6 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, showToast }) => {
   const [loading, setLoading] = useState(false);
 
   const { branding } = useAppBrand();
-  const configured = isSupabaseConfigured();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,39 +26,46 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, showToast }) => {
       return;
     }
 
-    if (!configured) {
-      showToast('Supabase is not configured yet. Please update VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in .env file', 'error');
-      return;
-    }
-
     setLoading(true);
 
     try {
       if (isSignUp) {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              full_name: fullName,
-              company_name: companyName,
-            },
-          },
+        const data = await apiFetch('/api/auth/register', {
+          method: 'POST',
+          body: JSON.stringify({
+            email,
+            password,
+            fullName,
+            companyName,
+          }),
         });
-        if (error) throw error;
-        showToast('Registration successful! Please sign in or check your email for confirmation.', 'success');
-        setIsSignUp(false);
+
+        if (data.token) {
+          setToken(data.token);
+          setStoredUser(data.user);
+        }
+
+        showToast('Registration successful! Account created on POCO server.', 'success');
+        onSuccess();
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
+        const data = await apiFetch('/api/auth/login', {
+          method: 'POST',
+          body: JSON.stringify({
+            email,
+            password,
+          }),
         });
-        if (error) throw error;
-        showToast('Signed in successfully!', 'success');
+
+        if (data.token) {
+          setToken(data.token);
+          setStoredUser(data.user);
+        }
+
+        showToast('Signed in successfully to POCO phone server!', 'success');
         onSuccess();
       }
     } catch (err: any) {
-      showToast(err.message || 'Authentication failed', 'error');
+      showToast(err.message || 'Authentication failed. Is your POCO server online?', 'error');
     } finally {
       setLoading(false);
     }
@@ -85,24 +91,11 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, showToast }) => {
           </div>
           <h1 className="text-3xl font-extrabold tracking-tight text-white">{branding.appName}</h1>
           <p className="text-sm text-indigo-400 font-medium mt-1">{branding.appSubtitle}</p>
-          <p className="text-xs text-zinc-400 mt-2">
-            {isSignUp ? 'Create your business expense management account' : 'Sign in to access your financial portal'}
-          </p>
-        </div>
-
-        {/* Warning if Supabase URL / Key is placeholder */}
-        {!configured && (
-          <div className="mb-6 p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs flex items-start gap-3">
-            <ShieldAlert className="w-5 h-5 shrink-0 text-amber-400 mt-0.5" />
-            <div>
-              <p className="font-semibold text-amber-200">Supabase Credentials Needed</p>
-              <p className="mt-1 leading-relaxed">
-                Update <code className="bg-black/50 px-1 py-0.5 rounded text-amber-400">VITE_SUPABASE_URL</code> and{' '}
-                <code className="bg-black/50 px-1 py-0.5 rounded text-amber-400">VITE_SUPABASE_PUBLISHABLE_KEY</code> in your project's <code className="bg-black/50 px-1 py-0.5 rounded text-amber-400">.env</code> file or GitHub Secrets to connect to your Supabase PostgreSQL database.
-              </p>
-            </div>
+          <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium">
+            <Server className="w-3.5 h-3.5" />
+            <span>POCO Android Server: {API_BASE_URL}</span>
           </div>
-        )}
+        </div>
 
         {/* Auth Box */}
         <div className="bg-[#08090E] border border-white/10 rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
@@ -124,6 +117,22 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, showToast }) => {
               </div>
             )}
 
+            {isSignUp && (
+              <div>
+                <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Company / Agency Name</label>
+                <div className="relative">
+                  <User className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    placeholder="SalihPort Digital"
+                    className="w-full bg-[#0D0E16] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition-colors"
+                  />
+                </div>
+              </div>
+            )}
+
             <div>
               <label className="block text-xs font-semibold text-zinc-300 mb-1.5">Email Address</label>
               <div className="relative">
@@ -133,7 +142,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess, showToast }) => {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@company.com"
+                  placeholder="admin@salihport.local"
                   className="w-full bg-[#0D0E16] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500 transition-colors"
                 />
               </div>

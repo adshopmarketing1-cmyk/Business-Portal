@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase } from './lib/supabase';
-import { User } from '@supabase/supabase-js';
+import { getToken, removeToken, getStoredUser, apiFetch } from './lib/api';
 import { Expense, Income, Client, Budget, Profile } from './types/database';
 import { Layout, TabType } from './components/Layout';
 import { ToastContainer, ToastMessage, ToastType } from './components/Toast';
@@ -15,14 +14,14 @@ import { Budgets } from './pages/Budgets';
 import { Reports } from './pages/Reports';
 import { Settings } from './pages/Settings';
 
-import { getProfile } from './services/profiles';
+import { getProfile, updateProfile } from './services/profiles';
 import { getExpenses, createExpense, updateExpense, deleteExpense } from './services/expenses';
 import { getIncome, createIncome, updateIncome, deleteIncome } from './services/income';
 import { getClients, createClient, updateClient, deleteClient } from './services/clients';
 import { getBudgets, createBudget, updateBudget, deleteBudget } from './services/budgets';
 
 export const App: React.FC = () => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<any | null>(() => getStoredUser());
   const [authLoading, setAuthLoading] = useState(true);
   const [currentTab, setCurrentTab] = useState<TabType>('dashboard');
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -62,33 +61,47 @@ export const App: React.FC = () => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
 
-  // Auth state listener
+  // Auth & Session Check
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
+    const checkAuthSession = async () => {
+      const token = getToken();
+      if (token) {
+        try {
+          const data = await apiFetch('/api/auth/me');
+          if (data && data.user) {
+            setUser(data.user);
+          }
+        } catch (e) {
+          console.warn('Invalid session or server offline on app launch:', e);
+        }
+      } else {
+        setUser(null);
+      }
       setAuthLoading(false);
-    });
+    };
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      setAuthLoading(false);
-    });
+    checkAuthSession();
 
-    return () => subscription.unsubscribe();
+    const handleSessionExpired = () => {
+      setUser(null);
+      showToast('Session expired. Please log in again.', 'warning');
+    };
+
+    window.addEventListener('auth_session_expired', handleSessionExpired);
+    return () => window.removeEventListener('auth_session_expired', handleSessionExpired);
   }, []);
 
   // Fetch application data when authenticated
-  const loadData = async (userId: string) => {
+  const loadData = async () => {
+    if (!getToken()) return;
     setDataLoading(true);
     try {
       const [profData, expData, incData, cliData, budData] = await Promise.all([
-        getProfile(userId).catch(() => null),
-        getExpenses(userId).catch(() => []),
-        getIncome(userId).catch(() => []),
-        getClients(userId).catch(() => []),
-        getBudgets(userId).catch(() => []),
+        getProfile().catch(() => null),
+        getExpenses().catch(() => []),
+        getIncome().catch(() => []),
+        getClients().catch(() => []),
+        getBudgets().catch(() => []),
       ]);
 
       setProfile(profData);
@@ -105,7 +118,7 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     if (user) {
-      loadData(user.id);
+      loadData();
     } else {
       setExpenses([]);
       setIncome([]);
@@ -116,8 +129,13 @@ export const App: React.FC = () => {
   }, [user]);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    showToast('Signed out of session', 'info');
+    try {
+      await apiFetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+    } finally {
+      removeToken();
+      setUser(null);
+      showToast('Signed out of session', 'info');
+    }
   };
 
   // CRUD Handlers - Expenses
@@ -126,7 +144,7 @@ export const App: React.FC = () => {
     try {
       const created = await createExpense(user.id, data);
       setExpenses((prev) => [created, ...prev]);
-      showToast('Expense added successfully to Supabase!', 'success');
+      showToast('Expense added successfully to POCO server!', 'success');
     } catch (err: any) {
       showToast('Failed to add expense: ' + err.message, 'error');
       throw err;
@@ -153,7 +171,7 @@ export const App: React.FC = () => {
         try {
           await deleteExpense(id);
           setExpenses((prev) => prev.filter((e) => e.id !== id));
-          showToast('Expense deleted from Supabase', 'success');
+          showToast('Expense deleted from server', 'success');
         } catch (err: any) {
           showToast('Failed to delete expense: ' + err.message, 'error');
         } finally {
@@ -169,8 +187,8 @@ export const App: React.FC = () => {
     try {
       const created = await createIncome(user.id, data);
       setIncome((prev) => [created, ...prev]);
-      if (user) loadData(user.id); // reload to get updated client balances
-      showToast('Income record saved to Supabase!', 'success');
+      loadData(); // reload to refresh client balances & totals
+      showToast('Income record saved to POCO server!', 'success');
     } catch (err: any) {
       showToast('Failed to save income: ' + err.message, 'error');
       throw err;
@@ -208,14 +226,12 @@ export const App: React.FC = () => {
   };
 
   // CRUD Handlers - Clients
-  const handleAddClient = async (
-    data: Omit<Client, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'balance_amount'>
-  ) => {
+  const handleAddClient = async (data: Omit<Client, 'id' | 'user_id' | 'created_at' | 'updated_at' | 'balance_amount'>) => {
     if (!user) return;
     try {
       const created = await createClient(user.id, data);
       setClients((prev) => [created, ...prev]);
-      showToast('Client added to Supabase!', 'success');
+      showToast('Client added to directory!', 'success');
     } catch (err: any) {
       showToast('Failed to add client: ' + err.message, 'error');
       throw err;
@@ -226,7 +242,7 @@ export const App: React.FC = () => {
     try {
       const updated = await updateClient(id, updates);
       setClients((prev) => prev.map((c) => (c.id === id ? updated : c)));
-      showToast('Client ledger updated!', 'success');
+      showToast('Client record updated!', 'success');
     } catch (err: any) {
       showToast('Failed to update client: ' + err.message, 'error');
       throw err;
@@ -237,12 +253,12 @@ export const App: React.FC = () => {
     setConfirmModal({
       isOpen: true,
       title: 'Delete Client',
-      message: 'Are you sure you want to delete this client record?',
+      message: 'Are you sure you want to delete this client? All linked payment ledgers will also be deleted.',
       onConfirm: async () => {
         try {
           await deleteClient(id);
           setClients((prev) => prev.filter((c) => c.id !== id));
-          showToast('Client record deleted', 'success');
+          showToast('Client deleted', 'success');
         } catch (err: any) {
           showToast('Failed to delete client: ' + err.message, 'error');
         } finally {
@@ -258,9 +274,9 @@ export const App: React.FC = () => {
     try {
       const created = await createBudget(user.id, data);
       setBudgets((prev) => [created, ...prev]);
-      showToast('Budget allocated in Supabase!', 'success');
+      showToast('Budget target created!', 'success');
     } catch (err: any) {
-      showToast('Failed to set budget: ' + err.message, 'error');
+      showToast('Failed to create budget: ' + err.message, 'error');
       throw err;
     }
   };
@@ -279,13 +295,13 @@ export const App: React.FC = () => {
   const handleDeleteBudget = (id: string) => {
     setConfirmModal({
       isOpen: true,
-      title: 'Delete Budget',
-      message: 'Are you sure you want to delete this category budget limit?',
+      title: 'Delete Budget Target',
+      message: 'Are you sure you want to delete this category budget target?',
       onConfirm: async () => {
         try {
           await deleteBudget(id);
           setBudgets((prev) => prev.filter((b) => b.id !== id));
-          showToast('Budget allocation deleted', 'success');
+          showToast('Budget target deleted', 'success');
         } catch (err: any) {
           showToast('Failed to delete budget: ' + err.message, 'error');
         } finally {
@@ -295,115 +311,124 @@ export const App: React.FC = () => {
     });
   };
 
+  // Handler - Update Profile / Currency Settings
+  const handleUpdateProfile = async (updates: Partial<Profile>) => {
+    if (!user) return;
+    try {
+      const updated = await updateProfile(user.id, updates);
+      setProfile(updated);
+      showToast('Profile settings saved!', 'success');
+    } catch (err: any) {
+      showToast('Failed to update profile settings: ' + err.message, 'error');
+    }
+  };
+
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center text-indigo-400">
-        <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-3 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-xs text-zinc-400 font-medium">Connecting to POCO Phone Server...</p>
+        </div>
       </div>
     );
   }
 
   if (!user) {
-    return (
-      <>
-        <Auth onSuccess={() => {}} showToast={showToast} />
-        <ToastContainer toasts={toasts} onDismiss={handleDismissToast} />
-      </>
-    );
+    return <Auth onSuccess={loadData} showToast={showToast} />;
   }
-
-  const currency = profile?.currency || 'INR';
 
   return (
     <Layout
       currentTab={currentTab}
-      onSelectTab={setCurrentTab}
-      onSearch={(q) => setSearchQuery(q)}
-      userEmail={user.email}
-      profile={profile}
+      onTabChange={setCurrentTab}
+      user={user}
       onLogout={handleLogout}
-      showToast={showToast}
+      searchQuery={searchQuery}
+      onSearchChange={setSearchQuery}
     >
-      {dataLoading ? (
-        <div className="py-20 flex flex-col items-center justify-center text-zinc-400">
-          <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin mb-4" />
-          <p className="text-sm font-semibold">Synchronizing PostgreSQL records...</p>
-        </div>
-      ) : (
-        <>
-          {currentTab === 'dashboard' && (
-            <Dashboard
-              expenses={expenses}
-              income={income}
-              clients={clients}
-              budgets={budgets}
-              currency={currency}
-              onNavigate={(tab) => setCurrentTab(tab)}
-              onAddExpense={handleAddExpense}
-            />
-          )}
-
-          {currentTab === 'expenses' && (
-            <Expenses
-              expenses={expenses}
-              currency={currency}
-              onAdd={handleAddExpense}
-              onUpdate={handleUpdateExpense}
-              onDelete={handleDeleteExpense}
-              initialSearch={searchQuery}
-            />
-          )}
-
-          {currentTab === 'income' && (
-            <IncomePage
-              incomeList={income}
-              clients={clients}
-              currency={currency}
-              onAdd={handleAddIncome}
-              onUpdate={handleUpdateIncome}
-              onDelete={handleDeleteIncome}
-            />
-          )}
-
-          {currentTab === 'clients' && (
-            <ClientBalances
-              clients={clients}
-              income={income}
-              currency={currency}
-              onAdd={handleAddClient}
-              onUpdate={handleUpdateClient}
-              onDelete={handleDeleteClient}
-              onAddIncome={handleAddIncome}
-            />
-          )}
-
-          {currentTab === 'budgets' && (
-            <Budgets
-              budgets={budgets}
-              expenses={expenses}
-              currency={currency}
-              onAdd={handleAddBudget}
-              onUpdate={handleUpdateBudget}
-              onDelete={handleDeleteBudget}
-            />
-          )}
-
-          {currentTab === 'reports' && (
-            <Reports expenses={expenses} income={income} budgets={budgets} currency={currency} />
-          )}
-
-          {currentTab === 'settings' && (
-            <Settings
-              userId={user.id}
-              profile={profile}
-              onProfileUpdated={setProfile}
-              showToast={showToast}
-            />
-          )}
-        </>
+      {currentTab === 'dashboard' && (
+        <Dashboard
+          expenses={expenses}
+          income={income}
+          clients={clients}
+          budgets={budgets}
+          currency={profile?.currency || 'INR'}
+          onNavigate={setCurrentTab}
+          loading={dataLoading}
+        />
       )}
 
-      {/* Global Modals and Notifications */}
+      {currentTab === 'expenses' && (
+        <Expenses
+          expenses={expenses}
+          currency={profile?.currency || 'INR'}
+          onAddExpense={handleAddExpense}
+          onUpdateExpense={handleUpdateExpense}
+          onDeleteExpense={handleDeleteExpense}
+          searchQuery={searchQuery}
+          showToast={showToast}
+        />
+      )}
+
+      {currentTab === 'income' && (
+        <IncomePage
+          income={income}
+          clients={clients}
+          currency={profile?.currency || 'INR'}
+          onAddIncome={handleAddIncome}
+          onUpdateIncome={handleUpdateIncome}
+          onDeleteIncome={handleDeleteIncome}
+          searchQuery={searchQuery}
+          showToast={showToast}
+        />
+      )}
+
+      {currentTab === 'clients' && (
+        <ClientBalances
+          clients={clients}
+          currency={profile?.currency || 'INR'}
+          onAddClient={handleAddClient}
+          onUpdateClient={handleUpdateClient}
+          onDeleteClient={handleDeleteClient}
+          onRefresh={loadData}
+          searchQuery={searchQuery}
+          showToast={showToast}
+        />
+      )}
+
+      {currentTab === 'budgets' && (
+        <Budgets
+          budgets={budgets}
+          expenses={expenses}
+          currency={profile?.currency || 'INR'}
+          onAddBudget={handleAddBudget}
+          onUpdateBudget={handleUpdateBudget}
+          onDeleteBudget={handleDeleteBudget}
+          showToast={showToast}
+        />
+      )}
+
+      {currentTab === 'reports' && (
+        <Reports
+          expenses={expenses}
+          income={income}
+          clients={clients}
+          currency={profile?.currency || 'INR'}
+          appName={profile?.app_name || 'SalihPort'}
+        />
+      )}
+
+      {currentTab === 'settings' && (
+        <Settings
+          profile={profile}
+          user={user}
+          onUpdateProfile={handleUpdateProfile}
+          showToast={showToast}
+        />
+      )}
+
+      {/* Confirm Action Modal */}
       <ConfirmModal
         isOpen={confirmModal.isOpen}
         title={confirmModal.title}
@@ -411,9 +436,9 @@ export const App: React.FC = () => {
         onConfirm={confirmModal.onConfirm}
         onCancel={() => setConfirmModal((prev) => ({ ...prev, isOpen: false }))}
       />
+
+      {/* Global Toast Container */}
       <ToastContainer toasts={toasts} onDismiss={handleDismissToast} />
     </Layout>
   );
 };
-
-export default App;
